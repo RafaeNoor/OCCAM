@@ -153,6 +153,7 @@ def run(prog, args, sb=None, fail_on_error=True):
 
     log.log(logging.INFO, 'EXECUTING: %s\n', ' '.join([prog] + args))
 
+    print([prog]+args)
     proc = subprocess.Popen([prog] + args,
                             stderr=outfp,
                             stdout=outfp,
