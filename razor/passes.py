@@ -109,9 +109,22 @@ def lib_occamize(input_file, output_file, functions):
 
     print("Lib Ocammize invoked with:"+functions)
 
-    args += ['-LibToMain','-entry-point={}'.format(functions)]
+    args = ['-LibToMain','-entry-point={}'.format(functions)]
 
     return driver.previrt(input_file,output_file, args)
+
+def remove_main(input_file, output_file):
+    """
+    OCCAMIZE library by removing dummy main function
+    """
+
+    print("Remove Main invoked with:"+functions)
+
+    args = ['-MainToLib']
+
+    return driver.previrt(input_file,output_file, args)
+
+
 
 
 def rewrite(input_file, output_file, rewrites, output=None):

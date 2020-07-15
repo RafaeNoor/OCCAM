@@ -141,14 +141,15 @@ namespace transforms {
         return new DummyMainFunction ();
     }
 
-    static llvm::RegisterPass<previrt::transforms::DummyMainFunction>
+    
+
+
+} // end namespace   
+} // end namespace   
+
+static llvm::RegisterPass<previrt::transforms::DummyMainFunction>
         X("LibToMain",
                 "Convert a library bitcode into a standalone module with a main function which has non-deterministic calls to certain functions");
 
-
-
-
-} // end namespace   
-} // end namespace   
 
 

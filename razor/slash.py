@@ -426,7 +426,19 @@ class Slash(object):
             print "\tEntry Point= "+entry_point
             passes.lib_occamize(pre,post,entry_point)
 
-        if entry_point <> "none":
+
+        def removemain(m):
+            "If library specialization remove the main function"
+            pre = m.get()
+            pre_base = os.path.basename(pre)
+            post = m.new('rm')
+            post_base = os.path.basename(post)
+            passes.remove_main(pre,post)
+
+
+
+
+        if entry_point != "none":
             pool.InParallel(liboccamize, files.values(), self.pool)
 
 
@@ -532,6 +544,9 @@ class Slash(object):
                 passes.internalize(pre, post, [iface_after_file.get()], self.whitelist)
 
             pool.InParallel(sealing, files.values(), self.pool)
+
+        if entry_point != "none":
+            pool.InParallel(removemain, files.values(), self.pool)
 
         utils.write_timestamp("Finished global fixpoint.")
 
