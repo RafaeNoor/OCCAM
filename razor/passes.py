@@ -118,7 +118,7 @@ def remove_main(input_file, output_file):
     OCCAMIZE library by removing dummy main function
     """
 
-    print("Remove Main invoked with:"+functions)
+    print("Remove Main invoked with:")
 
     args = ['-MainToLib']
 
