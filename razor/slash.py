@@ -340,6 +340,19 @@ class Slash(object):
             print_profile_maps()
             return
 
+
+        def liboccamize(m):
+            "Create dummy main which invokes certain functions only"
+            pre = m.get()
+            pre_base = os.path.basename(pre)
+            post = m.new('lo')
+            post_base = os.path.basename(post)
+            print "\tEntry Point= "+entry_point
+            passes.lib_occamize(pre,post,entry_point)
+
+        if entry_point != "none":
+            pool.InParallel(liboccamize, files.values(), self.pool)
+
         ### 0. Lift deployment information into main's module
         if args is not None:
             sys.stderr.write('Full input-user specialization using fix parameters: {0}\n'.format(args))
@@ -417,6 +430,9 @@ class Slash(object):
         #  If libOCCAMize then insert main module:
         ### 2.5. Lib Occamize:
 
+
+        """
+
         def liboccamize(m):
             "Create dummy main which invokes certain functions only"
             pre = m.get()
@@ -425,6 +441,10 @@ class Slash(object):
             post_base = os.path.basename(post)
             print "\tEntry Point= "+entry_point
             passes.lib_occamize(pre,post,entry_point)
+
+        if entry_point != "none":
+            pool.InParallel(liboccamize, files.values(), self.pool)
+        """
 
 
         def removemain(m):
@@ -438,8 +458,6 @@ class Slash(object):
 
 
 
-        if entry_point != "none":
-            pool.InParallel(liboccamize, files.values(), self.pool)
 
 
 
@@ -595,7 +613,12 @@ class Slash(object):
                 traceback.print_exc()
                 return False
 
-        link_ok = link(binary, files, libs, native_libs, native_lib_flags, ldflags)
+
+        if entry_point == "none":
+            link_ok = link(binary, files, libs, native_libs, native_lib_flags, ldflags)
+        else:
+            print("Lib OCCAMIZE invoked, no linking neccesary")
+            link_ok = False
 
         if use_rop_guided_dce and link_ok:
             sys.stderr.write('\n\nIf you really want to use \"--rop-guided-dce\" option ' + \
