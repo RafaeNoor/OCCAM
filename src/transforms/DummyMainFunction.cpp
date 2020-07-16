@@ -1,5 +1,6 @@
 /** Insert dummy main function if one does not exist */
 
+#include <string.h>
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Value.h"
@@ -25,131 +26,163 @@ EntryPoint("entry-point",
         llvm::cl::init (""));
 
 namespace previrt {
-namespace transforms {
+    namespace transforms {
 
 
-    using namespace llvm;
+        using namespace llvm;
 
 
-    class DummyMainFunction : public ModulePass
-    {
-        DenseMap<const Type*, Constant*> m_ndfn;
-
-        Function& makeNewNondetFn (Module &m, Type &type, unsigned num, std::string prefix)
+        class DummyMainFunction : public ModulePass
         {
-            std::string name;
-            unsigned c = num;
-            do
-                name = boost::str (boost::format (prefix + "%d") % (c++));
-            while (m.getNamedValue (name));
-            Function *res = dyn_cast<Function>(m.getOrInsertFunction (name, &type).getCallee());
-            assert (res);
-            return *res;
-        }
+            DenseMap<const Type*, Constant*> m_ndfn;
 
-        Constant* getNondetFn (Type *type, Module& M) {
-            Constant* res = m_ndfn [type];
-            if (!res) {
-                res = &makeNewNondetFn (M, *type, m_ndfn.size (), "verifier.nondet.");
-                m_ndfn[type] = res;
+            Function& makeNewNondetFn (Module &m, Type &type, unsigned num, std::string prefix)
+            {
+                std::string name;
+                unsigned c = num;
+                do
+                    name = boost::str (boost::format (prefix + "%d") % (c++));
+                while (m.getNamedValue (name));
+                Function *res = dyn_cast<Function>(m.getOrInsertFunction (name, &type).getCallee());
+                assert (res);
+                return *res;
             }
-            return res;
-        }
 
-
-        public:
-
-        static char ID;
-
-        DummyMainFunction () : ModulePass (ID) {
-            // Initialize sea-dsa pass
-            llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
-            llvm::initializeCompleteCallGraphPass(Registry);
-        }
-
-        bool runOnModule (Module &M)
-        {
-
-            if (M.getFunction ("main")) { 
-                errs () << "DummyMainFunction: Main already exists.\n";
-                return false;
-            }      
-
-            errs()<<"Invoked Dummy main on:"<<EntryPoint<<"\n";
-            Function* Entry = nullptr;
-            if (EntryPoint != "" && EntryPoint != "none")
-                Entry = M.getFunction (EntryPoint);
-
-            // --- Create main
-            LLVMContext &ctx = M.getContext ();
-            Type* intTy = Type::getInt32Ty (ctx);
-
-            ArrayRef <Type*> params;
-            Function *main = Function::Create (FunctionType::get (intTy, params, false), 
-                    GlobalValue::LinkageTypes::ExternalLinkage, 
-                    "main", &M);
-
-            IRBuilder<> B (ctx);
-            BasicBlock *BB = BasicBlock::Create (ctx, "", main);
-            B.SetInsertPoint (BB, BB->begin ());
-
-            std::vector<Function*> FunctionsToCall;
-            if (Entry) {  
-                FunctionsToCall.push_back (Entry);
-            } else { 
-                // --- if no selected entry found then we call to all
-                //     non-declaration functions.
-                for (auto &F: M) {
-                    if (F.getName () == "main") // avoid recursive call to main
-                        continue;
-                    if (F.isDeclaration ())
-                        continue;
-                    FunctionsToCall.push_back (&F);
+            Constant* getNondetFn (Type *type, Module& M) {
+                Constant* res = m_ndfn [type];
+                if (!res) {
+                    res = &makeNewNondetFn (M, *type, m_ndfn.size (), "verifier.nondet.");
+                    m_ndfn[type] = res;
                 }
+                return res;
             }
 
-            for (auto F: FunctionsToCall) {
-                // -- create a call with non-deterministic actual parameters
+            void makePrintf(Module& m, CallInst* ci, IRBuilder<> builder){
+
+                Type* charType = Type::getInt8PtrTy(m.getContext());
+                FunctionType *printf_type = FunctionType::get(charType,true);
+
+                auto *res = cast<Function>(m.getOrInsertFunction("printf", printf_type).getCallee());
+
+                assert(res && "printf not found in module");
+
+                Type* type = res->getReturnType();
+
+                // Testing with fixed type
+                std::string type_fmt = "%d";
+
+
                 SmallVector<Value*, 16> Args;
-                for (auto &A : F->args ()) {
-                    Constant *ndf = getNondetFn (A.getType (), M);
-                    Args.push_back (B.CreateCall (ndf));
-                }
-                CallInst* CI = B.CreateCall (F, Args);
-                errs () << "DummyMainFunction: created a call " << *CI << "\n";
+
+                std::string fmt = "Creating print call for " + type_fmt;
+                Value* global_fmt = builder.CreateGlobalStringPtr(fmt.c_str());
+
+                Args.push_back(global_fmt);
+                Args.push_back((Value *) ci);
+
+                CallInst* printFunc = builder.CreateCall(res, Args);
+
+                errs() <<"Dummy Main Function: created print call "<< *printFunc << "\n";
+
             }
 
-            // -- return of main
-            // our favourite exit code
-            B.CreateRet ( ConstantInt::get (intTy, 42));
+            public:
+
+            static char ID;
+
+            DummyMainFunction () : ModulePass (ID) {
+                // Initialize sea-dsa pass
+                llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
+                llvm::initializeCompleteCallGraphPass(Registry);
+            }
+
+            bool runOnModule (Module &M)
+            {
+
+                if (M.getFunction ("main")) { 
+                    errs () << "DummyMainFunction: Main already exists.\n";
+                    return false;
+                }      
+
+                errs()<<"Invoked Dummy main on:"<<EntryPoint<<"\n";
+                Function* Entry = nullptr;
+                if (EntryPoint != "" && EntryPoint != "none")
+                    Entry = M.getFunction (EntryPoint);
+
+                // --- Create main
+                LLVMContext &ctx = M.getContext ();
+                Type* intTy = Type::getInt32Ty (ctx);
+
+                ArrayRef <Type*> params;
+                Function *main = Function::Create (FunctionType::get (intTy, params, false), 
+                        GlobalValue::LinkageTypes::ExternalLinkage, 
+                        "main", &M);
+
+                IRBuilder<> B (ctx);
+                BasicBlock *BB = BasicBlock::Create (ctx, "", main);
+                B.SetInsertPoint (BB, BB->begin ());
+
+                std::vector<Function*> FunctionsToCall;
+                if (Entry) {  
+                    FunctionsToCall.push_back (Entry);
+                } else { 
+                    // --- if no selected entry found then we call to all
+                    //     non-declaration functions.
+                    for (auto &F: M) {
+                        if (F.getName () == "main") // avoid recursive call to main
+                            continue;
+                        if (F.isDeclaration ())
+                            continue;
+                        FunctionsToCall.push_back (&F);
+                    }
+                }
+
+                for (auto F: FunctionsToCall) {
+                    // -- create a call with non-deterministic actual parameters
+                    SmallVector<Value*, 16> Args;
+                    for (auto &A : F->args ()) {
+                        Constant *ndf = getNondetFn (A.getType (), M);
+                        Args.push_back (B.CreateCall (ndf));
+                    }
+
+                    CallInst* CI = B.CreateCall (F, Args);
+
+                    errs () << "DummyMainFunction: created a call " << *CI << "\n";
+                    makePrintf(M,CI,B);
+
+                }
+
+                // -- return of main
+                // our favourite exit code
+                B.CreateRet ( ConstantInt::get (intTy, 42));
 
 
-            return true;
+                return true;
+            }
+
+            void getAnalysisUsage (AnalysisUsage &AU)
+            { AU.setPreservesAll ();}
+
+            virtual StringRef getPassName () const 
+            {return "Add dummy main function";}
+        };
+
+
+        char DummyMainFunction::ID = 0;
+
+        Pass* createDummyMainFunctionPass (){
+            return new DummyMainFunction ();
         }
 
-        void getAnalysisUsage (AnalysisUsage &AU)
-        { AU.setPreservesAll ();}
-
-        virtual StringRef getPassName () const 
-        {return "Add dummy main function";}
-    };
 
 
-    char DummyMainFunction::ID = 0;
 
-    Pass* createDummyMainFunctionPass (){
-        return new DummyMainFunction ();
-    }
-
-    
-
-
-} // end namespace   
+    } // end namespace   
 } // end namespace   
 
 static llvm::RegisterPass<previrt::transforms::DummyMainFunction>
-        X("LibToMain",
-                "Convert a library bitcode into a standalone module with a main function which has non-deterministic calls to certain functions");
+X("LibToMain",
+        "Convert a library bitcode into a standalone module with a main function which has non-deterministic calls to certain functions",false,false);
 
 
 
