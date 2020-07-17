@@ -36,6 +36,25 @@ namespace previrt {
         {
             DenseMap<const Type*, Constant*> m_ndfn;
 
+            std::vector<std::string> parseArgs(std::string str){
+                std::vector<std::string> args;
+                
+                std::string arg = "";
+
+                for(unsigned i=0;i<str.size(); i++){
+                    if(str[i] == ','){
+                        args.push_back(arg);
+                        arg = "";
+                    } else {
+                        arg += str[i];
+                    }
+                }
+                if(arg!="") args.push_back(arg);
+                return args;
+            }
+
+
+
             Function& makeNewNondetFn (Module &m, Type &type, unsigned num, std::string prefix)
             {
                 std::string name;
@@ -61,7 +80,6 @@ namespace previrt {
 
                 Type* charType = Type::getInt8PtrTy(m.getContext());
                 FunctionType *printf_type = FunctionType::get(charType,true);
-
                 auto *res = cast<Function>(m.getOrInsertFunction("printf", printf_type).getCallee());
 
                 assert(res && "printf not found in module");
@@ -82,7 +100,7 @@ namespace previrt {
 
                 CallInst* printFunc = builder.CreateCall(res, Args);
 
-                errs() <<"Dummy Main Function: created print call "<< *printFunc << "\n";
+                errs() <<"DummyMainFunction: created print call "<< *printFunc << "\n";
 
             }
 
@@ -104,10 +122,27 @@ namespace previrt {
                     return false;
                 }      
 
-                errs()<<"Invoked Dummy main on:"<<EntryPoint<<"\n";
-                Function* Entry = nullptr;
-                if (EntryPoint != "" && EntryPoint != "none")
-                    Entry = M.getFunction (EntryPoint);
+                // Parse Comma seperated function names into a vector
+                std::vector<std::string> EntryFunctionsNames = parseArgs(EntryPoint);
+                SmallVector<Function*, 16> EntryFunctions;
+
+
+                errs()<<"Invoked Dummy main on:\n";
+
+                for(unsigned i=0;i<EntryFunctionsNames.size();i++){
+                    errs()<<i<<"\t"<<EntryFunctionsNames[i]<<"\n";
+
+                    if(EntryFunctionsNames[i] != "" && EntryFunctionsNames[i] != "none"){
+                        Function* fptr = M.getFunction(EntryFunctionsNames[i]);
+                        if(fptr){ EntryFunctions.push_back(fptr); }
+                        else {errs()<<"DummyMainFunction: "<<EntryFunctionsNames[i]<<" is not present in current module...\n";}
+                    }
+                }
+
+                if(!EntryFunctions.size()){
+                    errs()<<"DummyMainFunction: None of the specified functions exist in this module, aborting pass...\n";
+                    return false;
+                }
 
                 // --- Create main
                 LLVMContext &ctx = M.getContext ();
@@ -122,22 +157,7 @@ namespace previrt {
                 BasicBlock *BB = BasicBlock::Create (ctx, "", main);
                 B.SetInsertPoint (BB, BB->begin ());
 
-                std::vector<Function*> FunctionsToCall;
-                if (Entry) {  
-                    FunctionsToCall.push_back (Entry);
-                } else { 
-                    // --- if no selected entry found then we call to all
-                    //     non-declaration functions.
-                    for (auto &F: M) {
-                        if (F.getName () == "main") // avoid recursive call to main
-                            continue;
-                        if (F.isDeclaration ())
-                            continue;
-                        FunctionsToCall.push_back (&F);
-                    }
-                }
-
-                for (auto F: FunctionsToCall) {
+                for (auto F: EntryFunctions){//FunctionsToCall) {
                     // -- create a call with non-deterministic actual parameters
                     SmallVector<Value*, 16> Args;
                     for (auto &A : F->args ()) {
