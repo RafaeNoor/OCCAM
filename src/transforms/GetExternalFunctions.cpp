@@ -41,9 +41,23 @@ namespace previrt {
                 }
 
                 virtual bool runOnModule(Module &M) override {
+
+                    Function* Main = M.getFunction("main");
+
+                    // Only run for bitcode with a main function
+                    if(!Main){
+                        return false;
+                    }
+
+                    if(Main && Main->hasMetadata() && (Main->getMetadata("dummy.metadata"))) {
+                        errs()<<"GetExternalFunctions:\tModule is not a true program, exiting...\n";
+                        return false;
+                    }
+
+
                     std::ofstream write_file;
                     write_file.open("external.functions");
-                    write_file << "{ functions: [";
+                    write_file << "{ \"functions\": [";
                     std::vector<std::string> functions;
 
                     for(Function &F: M){
