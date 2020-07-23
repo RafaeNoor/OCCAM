@@ -101,6 +101,17 @@ def specialize(input_file, output_file, rewrite_file, interfaces, \
         output_file = '/dev/null'
     return driver.previrt(input_file, output_file, args)
 
+def get_external_functions(input_file, output_file):
+    """
+    Get all function declarations within the main module
+    """
+
+    print("Get External Functions invoked")
+
+    args = ["-GetExternal"]
+
+    return driver.previrt(input_file,output_file,args)
+
 def lib_occamize(input_file, output_file, functions):
     """
     OCCAMIZE library by creating dummy main function which invokes a specified

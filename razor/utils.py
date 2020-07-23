@@ -105,7 +105,7 @@ def make_work_dir(d):
 def sanity_check_manifest(manifest):
     """ Nurse maid the users.
     """
-    manifest_keys = ['ldflags', 'args', 'name', 'native_libs', 'binary', 'modules']
+    manifest_keys = ['ldflags', 'args', 'name', 'native_libs', 'binary', 'modules','lib_spec']
 
     old_manifest_keys = ['modules', 'libs', 'search', 'shared']
 
@@ -187,6 +187,7 @@ def check_manifest(manifest):
     args = manifest.get('args')
 
     constraints = manifest.get('constraints')
+
     if constraints is None:
         constraints = ('-1', [])
     else:
@@ -198,7 +199,9 @@ def check_manifest(manifest):
         sys.stderr.write('No name in manifest\n')
         return (False, )
 
-    return (True, main, binary, modules, native_libs, ldflags, args, name, constraints)
+    lib_spec = manifest.get('lib_spec')
+
+    return (True, main, binary, modules, native_libs, ldflags, args, name, constraints,lib_spec)
 
 
 #iam: used to be just os.path.basename; but now when we are processing trees
@@ -221,10 +224,10 @@ def prevent_collisions(x):
 bit_code_pattern = re.compile(r'\.bc$', re.IGNORECASE)
 
 
-def populate_work_dir(module, libs, work_dir):
+def populate_work_dir(module, libs, lib_spec, work_dir):
     files = {}
 
-    for x in [module] + libs:
+    for x in [module] + libs + lib_spec :
         if bit_code_pattern.search(x):
             bn = prevent_collisions(x)
             target = os.path.join(work_dir, bn)
@@ -274,7 +277,7 @@ def write_timestamp(msg):
     import datetime
     dt = datetime.datetime.now ().strftime ('%d/%m/%Y %H:%M:%S')
     sys.stderr.write("[%s] %s...\n" % (dt, msg))
-    
+
 def is_exec (fpath):
     if fpath == None: return False
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -289,7 +292,7 @@ def which(program):
             if is_exec (exe_file): return exe_file
     return None
 
-# seaopt is a customized version of LLVM opt that is more 
+# seaopt is a customized version of LLVM opt that is more
 # friendly to tools like crab and seahorn.
 def found_seaopt():
     opt = which('seaopt')
@@ -297,7 +300,7 @@ def found_seaopt():
         return True
     else:
         return False
-    
+
 def get_opt(use_seaopt = False):
     opt = None
     if use_seaopt:
@@ -307,7 +310,7 @@ def get_opt(use_seaopt = False):
     if opt is None:
         raise IOError('opt was not found')
     return opt
-    
+
 # Try to find ROPgadget binary
 def get_ropgadget():
     ropgadget = None

@@ -214,7 +214,7 @@ class Slash(object):
         if not valid:
             return 1
 
-        (valid, module, binary, libs, native_libs, ldflags, args, name, constraints) = parsed
+        (valid, module, binary, libs, native_libs, ldflags, args, name, constraints,lib_spec) = parsed
 
 
         if not self.driver_config():
@@ -254,6 +254,11 @@ class Slash(object):
         entry_point = utils.get_flag(self.flags,'entry-point','none')
         print("Entry point flag is:\t"+entry_point)
 
+
+        use_library_spec = False
+        if lib_spec != []:
+            use_library_spec = True
+
         intra_spec_policy = utils.get_flag(self.flags, 'intra-spec-policy', 'none')
         if not check_spec_policy(intra_spec_policy):
             return 1
@@ -277,7 +282,7 @@ class Slash(object):
         else:
             inline_spec = False
 
-        sys.stderr.write('\nslash working on {0} wrt {1} ...\n'.format(module, ' '.join(libs)))
+        sys.stderr.write('\nslash working on {0} wrt {1} with lib_spec {2} ...\n'.format(module, ' '.join(libs), ' '.join(lib_spec)))
 
         native_lib_flags = []
 
@@ -293,7 +298,7 @@ class Slash(object):
                 new_native_libs.append(os.path.realpath(lib))
         native_libs = new_native_libs
 
-        files = utils.populate_work_dir(module, libs, self.work_dir)
+        files = utils.populate_work_dir(module, libs, lib_spec, self.work_dir)
         os.chdir(self.work_dir)
 
         profile_maps, profile_map_titles = [], []
@@ -340,6 +345,21 @@ class Slash(object):
             print_profile_maps()
             return
 
+        def getexternal(m):
+            "get external functions for the main module"
+            pre = m.get()
+            pre_base = os.path.basename(pre)
+            post = m.new('ext')
+            post_base = os.path.basename(post)
+
+            passes.get_external_functions(pre,post)
+
+        if use_library_spec:
+            pool.InParallel(getexternal, files.values(), self.pool)
+
+
+
+
 
         def liboccamize(m):
             "Create dummy main which invokes certain functions only"
@@ -347,10 +367,31 @@ class Slash(object):
             pre_base = os.path.basename(pre)
             post = m.new('lo')
             post_base = os.path.basename(post)
-            print "\tEntry Point= "+entry_point
-            passes.lib_occamize(pre,post,entry_point)
 
-        if entry_point != "none":
+            lib_entry_functions = ""
+
+            if use_library_spec :
+                with open("external.functions","r") as func_file:
+                    import json
+                    spec_dict = json.load(func_file)
+
+                    if(spec_dict['functions'] == []):
+                        lib_entry_functions = "none"
+                    else:
+                        lib_entry_functions = ",".join(spec_dict['functions'])
+            else:
+                lib_entry_functions = entry_point
+
+
+
+
+
+            print "\tEntry Point= "+lib_entry_functions
+
+
+            passes.lib_occamize(pre,post,lib_entry_functions)
+
+        if entry_point != "none" or use_library_spec:
             pool.InParallel(liboccamize, files.values(), self.pool)
 
         ### 0. Lift deployment information into main's module
@@ -563,7 +604,7 @@ class Slash(object):
 
             pool.InParallel(sealing, files.values(), self.pool)
 
-        if entry_point != "none":
+        if entry_point != "none" or use_library_spec:
             pool.InParallel(removemain, files.values(), self.pool)
 
         utils.write_timestamp("Finished global fixpoint.")
@@ -585,7 +626,7 @@ class Slash(object):
             add_profile_map('after specialization')
 
         def link(binary, files, libs, native_libs, native_lib_flags, ldflags):
-            final_libs = [files[x].get() for x in libs]
+            final_libs = [files[x].get() for x in libs] + [files[x].get() for x in lib_spec]
             final_module = files[module].get()
             linker_args = None
             link_cmd = None
