@@ -46,6 +46,11 @@ namespace previrt {
 
                     Function* Main = M.getFunction("main");
 
+                    if(!Main->hasMetadata() || !(Main->getMetadata("dummy.metadata"))) {
+                        errs()<<"Module has no Dummy Main Function, exiting...\n";
+                        return false;
+                    }
+
                     Main->eraseFromParent();
 
                     return true;
@@ -72,5 +77,7 @@ namespace previrt {
 
 static llvm::RegisterPass<previrt::transforms::RemoveDummyMainFunction>
 X("MainToLib",
-        "Converty a program bitcode into a library module by removing the main function");
+        "Converty a program bitcode into a library module by removing the main function",
+        false,
+        false);
 

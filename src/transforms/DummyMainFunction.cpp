@@ -153,6 +153,10 @@ namespace previrt {
                         GlobalValue::LinkageTypes::ExternalLinkage, 
                         "main", &M);
 
+                LLVMContext& C = main->getContext();
+                MDNode* N = MDNode::get(C,MDString::get(C,"dummy"));
+                main->setMetadata("dummy.metadata",N);
+
                 IRBuilder<> B (ctx);
                 BasicBlock *BB = BasicBlock::Create (ctx, "", main);
                 B.SetInsertPoint (BB, BB->begin ());
