@@ -9,6 +9,7 @@ cat > manifest <<EOF
 , "ldflags" : [ "-O2" ]
 , "name"    : "testlib"
 , "args"    : []
+, "lib_spec": []
 }
 EOF
 
