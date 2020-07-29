@@ -82,6 +82,8 @@ namespace previrt {
 
                 for(auto &F: m){
                     std::string demangled = demangle(F.getName());
+                    demangled = demangled.substr(0,demangled.find_first_of("("));
+                    
                     if(fn_map.find(demangled) == fn_map.end()){
                         std::vector<std::string> names;
                         fn_map[demangled] = names;
@@ -95,6 +97,7 @@ namespace previrt {
 
             void printFnMapInfo(std::map<std::string, std::vector<std::string>> fn_map){
                 errs()<<"|\tPrinting Function Name Map\t|\n";
+                errs()<<"_______________________________________________\n";
                 for(auto iter = fn_map.begin(),e = fn_map.end(); iter != e; iter++){
                     std::string fn = iter->first;
                     std::vector< std::string > vec = iter-> second;
@@ -154,6 +157,7 @@ namespace previrt {
                 }      
 
                 auto fn_map = getFnMap(M);
+
                 printFnMapInfo(fn_map);
 
                 // Parse Comma seperated function names into a vector
@@ -167,9 +171,21 @@ namespace previrt {
                     errs()<<i<<"\t"<<EntryFunctionsNames[i]<<"\n";
 
                     if(EntryFunctionsNames[i] != "" && EntryFunctionsNames[i] != "none"){
-                        Function* fptr = M.getFunction(EntryFunctionsNames[i]);
-                        if(fptr){ EntryFunctions.push_back(fptr); }
-                        else {errs()<<"DummyMainFunction: "<<EntryFunctionsNames[i]<<" is not present in current module...\n";}
+                        if(fn_map.find(EntryFunctionsNames[i]) != fn_map.end()){
+                            std::vector<std::string> mangled_names = fn_map.find(EntryFunctionsNames[i])->second;
+
+                            for(auto fn_nm: mangled_names){
+                                Function* fptr = M.getFunction(fn_nm);
+                                if(fptr){ EntryFunctions.push_back(fptr); }
+                                else{
+                                    errs()<<"DummyMainFunction: This shouldn't have happend ;(\n";
+                                    assert(false);
+                                }
+                            }
+
+                        } else {
+                            errs()<<"DummyMainFunction: "<<EntryFunctionsNames[i]<<" is not present in current module...\n";
+                        }
                     }
                 }
 
