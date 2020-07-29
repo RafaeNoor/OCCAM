@@ -13,6 +13,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Demangle/Demangle.h"
 
 #include "seadsa/CompleteCallGraph.hh"
 #include "seadsa/InitializePasses.hh"
@@ -76,6 +77,36 @@ namespace previrt {
                 return res;
             }
 
+            std::map<std::string, std::vector<std::string>> getFnMap(Module& m){
+                std::map<std::string, std::vector<std::string>> fn_map;
+
+                for(auto &F: m){
+                    std::string demangled = demangle(F.getName());
+                    if(fn_map.find(demangled) == fn_map.end()){
+                        std::vector<std::string> names;
+                        fn_map[demangled] = names;
+                    }
+
+                    fn_map[demangled].push_back(F.getName());
+                }
+
+                return fn_map;
+            }
+
+            void printFnMapInfo(std::map<std::string, std::vector<std::string>> fn_map){
+                errs()<<"|\tPrinting Function Name Map\t|\n";
+                for(auto iter = fn_map.begin(),e = fn_map.end(); iter != e; iter++){
+                    std::string fn = iter->first;
+                    std::vector< std::string > vec = iter-> second;
+
+                    errs()<<fn<<":\n";
+                    for(auto nm: vec){
+                        errs()<<"\t"<<nm<<"\n";
+                    }
+                    errs()<<"_______________________________________________\n";
+                }
+            }
+
             void makePrintf(Module& m, CallInst* ci, IRBuilder<> builder){
 
                 Type* charType = Type::getInt8PtrTy(m.getContext());
@@ -121,6 +152,9 @@ namespace previrt {
                     errs () << "DummyMainFunction: Main already exists.\n";
                     return false;
                 }      
+
+                auto fn_map = getFnMap(M);
+                printFnMapInfo(fn_map);
 
                 // Parse Comma seperated function names into a vector
                 std::vector<std::string> EntryFunctionsNames = parseArgs(EntryPoint);
