@@ -34,6 +34,10 @@ namespace previrt {
             public:
                 static char ID;
 
+                std::string getModuleName(std::string path){
+                    return path.substr(path.find_last_of("/")+1);
+                }
+
                 GetExternalFunctions() : ModulePass(ID) {
                     // Initialize sea-dsa pass
                     //llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
@@ -42,6 +46,8 @@ namespace previrt {
 
                 virtual bool runOnModule(Module &M) override {
 
+                    std::string ModuleName = getModuleName(M.getName());
+                    errs()<<"Module Name:\t"<<ModuleName<<"\n";
                     Function* Main = M.getFunction("main");
 
                     // Only run for bitcode with a main function
@@ -56,7 +62,7 @@ namespace previrt {
 
 
                     std::ofstream write_file;
-                    write_file.open("external.functions");
+                    write_file.open("external.functions."+ModuleName);
                     write_file << "{ \"functions\": [";
                     std::vector<std::string> functions;
 

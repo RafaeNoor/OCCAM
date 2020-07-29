@@ -35,6 +35,7 @@ import sys
 import os
 import tempfile
 import collections
+import glob
 
 from . import utils
 
@@ -371,14 +372,17 @@ class Slash(object):
             lib_entry_functions = ""
 
             if use_library_spec :
-                with open("external.functions","r") as func_file:
-                    import json
-                    spec_dict = json.load(func_file)
+                external_function_files = glob.glob("external.functions.*")
+                import json
+                for external_file in external_function_files:
+                    with open(external_file,"r") as func_file:
+                        print("Reading from file:\t"+external_file)
+                        spec_dict = json.load(func_file)
 
-                    if(spec_dict['functions'] == []):
-                        lib_entry_functions = "none"
-                    else:
-                        lib_entry_functions = ",".join(spec_dict['functions'])
+                        if(spec_dict['functions'] == []):
+                            lib_entry_functions = "none"
+                        else:
+                            lib_entry_functions = ",".join(spec_dict['functions'])
             else:
                 lib_entry_functions = entry_point
 
