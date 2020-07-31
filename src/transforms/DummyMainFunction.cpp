@@ -1,4 +1,17 @@
-/** Insert dummy main function if one does not exist */
+/**
+ * LLVM transformation pass to construct a 'Dummy' main function
+ * which calls a list of specified functions with non-deterministic
+ * arguments.
+ *
+ * This pass builds a main function for bitcodes which do not have one 
+ * (e.g. library bitcodes). Then via user specified entry-point functions,
+ * this pass would identify the types of the arguments for each of the 
+ * entry points and create non-deterministic versions of them to be passed
+ * into the Seahorn model-checker and Devirtualization pass, after which 
+ * any reachable function, either directly or indirectly would be kept in
+ * the module. The result would be a specialized bitcode for the specified
+ * entry points.
+ **/
 
 #include <string.h>
 #include "llvm/Pass.h"
@@ -18,13 +31,12 @@
 #include "seadsa/CompleteCallGraph.hh"
 #include "seadsa/InitializePasses.hh"
 
-//#include "seahorn/Support/SeaDebug.h"
 #include "boost/format.hpp"
 
-static llvm::cl::opt<std::string>
-EntryPoint("entry-point",
+static llvm::cl::list<std::string>
+EntryPoints("entry-point",
         llvm::cl::desc ("Entry point if main does not exist"),
-        llvm::cl::init (""));
+        llvm::cl::ZeroOrMore);
 
 namespace previrt {
     namespace transforms {
@@ -37,25 +49,11 @@ namespace previrt {
         {
             DenseMap<const Type*, Constant*> m_ndfn;
 
-            std::vector<std::string> parseArgs(std::string str){
-                std::vector<std::string> args;
-                
-                std::string arg = "";
-
-                for(unsigned i=0;i<str.size(); i++){
-                    if(str[i] == ','){
-                        args.push_back(arg);
-                        arg = "";
-                    } else {
-                        arg += str[i];
-                    }
-                }
-                if(arg!="") args.push_back(arg);
-                return args;
-            }
-
-
-
+             /*
+              * Create a function declaration which corresponds to a non-deterministic call to 
+              * a function which returns a value of the specified type. Invoked for each argument 
+              * of the module entry point functions.
+              */
             Function& makeNewNondetFn (Module &m, Type &type, unsigned num, std::string prefix)
             {
                 std::string name;
@@ -68,6 +66,11 @@ namespace previrt {
                 return *res;
             }
 
+
+            /*
+             * No need to create multiple versions of non-deterministic calls
+             * for any one type.
+             */
             Constant* getNondetFn (Type *type, Module& M) {
                 Constant* res = m_ndfn [type];
                 if (!res) {
@@ -77,17 +80,21 @@ namespace previrt {
                 return res;
             }
 
+            /*
+             * Function names may be mangled by the front-end compiler. As entry-points
+             * are specified with the source-level names, we need to create a map from
+             * demangled source level names, to mangled versions of function(s).
+             *
+             * This also enables multiple prototypes of the same function name to be specified
+             * by their shared source level name.
+             *
+             */
             std::map<std::string, std::vector<std::string>> getFnMap(Module& m){
                 std::map<std::string, std::vector<std::string>> fn_map;
 
                 for(auto &F: m){
                     std::string demangled = demangle(F.getName());
                     demangled = demangled.substr(0,demangled.find_first_of("("));
-                    
-                    if(fn_map.find(demangled) == fn_map.end()){
-                        std::vector<std::string> names;
-                        fn_map[demangled] = names;
-                    }
 
                     fn_map[demangled].push_back(F.getName());
                 }
@@ -95,6 +102,10 @@ namespace previrt {
                 return fn_map;
             }
 
+            /*
+             * Printing the map of demangled function names to a vector of 
+             * corresponding mangled function names.
+             */
             void printFnMapInfo(std::map<std::string, std::vector<std::string>> fn_map){
                 errs()<<"|\tPrinting Function Name Map\t|\n";
                 errs()<<"_______________________________________________\n";
@@ -110,6 +121,12 @@ namespace previrt {
                 }
             }
 
+            /*
+             * The non-deterministic function calls created don't have their return values
+             * being used and hence would be discarded by the specialization passes. Creating
+             * temporary printf calls would prevent these passes from discarding these calls.
+             *
+             */
             void makePrintf(Module& m, CallInst* ci, IRBuilder<> builder){
 
                 Type* charType = Type::getInt8PtrTy(m.getContext());
@@ -142,11 +159,7 @@ namespace previrt {
 
             static char ID;
 
-            DummyMainFunction () : ModulePass (ID) {
-                // Initialize sea-dsa pass
-                llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
-                llvm::initializeCompleteCallGraphPass(Registry);
-            }
+            DummyMainFunction () : ModulePass (ID) {}
 
             bool runOnModule (Module &M)
             {
@@ -157,34 +170,32 @@ namespace previrt {
                 }      
 
                 auto fn_map = getFnMap(M);
-
                 printFnMapInfo(fn_map);
 
-                // Parse Comma seperated function names into a vector
-                std::vector<std::string> EntryFunctionsNames = parseArgs(EntryPoint);
+                // Functions corresponding to the user specified entry points
                 SmallVector<Function*, 16> EntryFunctions;
 
 
                 errs()<<"Invoked Dummy main on:\n";
 
-                for(unsigned i=0;i<EntryFunctionsNames.size();i++){
-                    errs()<<i<<"\t"<<EntryFunctionsNames[i]<<"\n";
+                for(unsigned i=0;i<EntryPoints.size();i++){
+                    errs()<<i<<"\t"<<EntryPoints[i]<<"\n";
 
-                    if(EntryFunctionsNames[i] != "" && EntryFunctionsNames[i] != "none"){
-                        if(fn_map.find(EntryFunctionsNames[i]) != fn_map.end()){
-                            std::vector<std::string> mangled_names = fn_map.find(EntryFunctionsNames[i])->second;
+                    if(EntryPoints[i] != "" && EntryPoints[i] != "none"){ // If entry points specified
+                        if(fn_map.find(EntryPoints[i]) != fn_map.end()){
+                            std::vector<std::string> mangled_names = fn_map.find(EntryPoints[i])->second;
 
                             for(auto fn_nm: mangled_names){
                                 Function* fptr = M.getFunction(fn_nm);
                                 if(fptr){ EntryFunctions.push_back(fptr); }
                                 else{
-                                    errs()<<"DummyMainFunction: This shouldn't have happend ;(\n";
+                                    errs()<<"DummyMainFunction: This shouldn't have happend\n";
                                     assert(false);
                                 }
                             }
 
                         } else {
-                            errs()<<"DummyMainFunction: "<<EntryFunctionsNames[i]<<" is not present in current module...\n";
+                            errs()<<"DummyMainFunction: "<<EntryPoints[i]<<" is not present in current module...\n";
                         }
                     }
                 }
@@ -203,6 +214,8 @@ namespace previrt {
                         GlobalValue::LinkageTypes::ExternalLinkage, 
                         "main", &M);
 
+                // Adding a metadata node with string dummy. Allows differentiating
+                // between 'Dummy' main functions and actual main functions across modules.
                 LLVMContext& C = main->getContext();
                 MDNode* N = MDNode::get(C,MDString::get(C,"dummy"));
                 main->setMetadata("dummy.metadata",N);
@@ -211,7 +224,7 @@ namespace previrt {
                 BasicBlock *BB = BasicBlock::Create (ctx, "", main);
                 B.SetInsertPoint (BB, BB->begin ());
 
-                for (auto F: EntryFunctions){//FunctionsToCall) {
+                for (auto F: EntryFunctions){
                     // -- create a call with non-deterministic actual parameters
                     SmallVector<Value*, 16> Args;
                     for (auto &A : F->args ()) {
@@ -222,6 +235,7 @@ namespace previrt {
                     CallInst* CI = B.CreateCall (F, Args);
 
                     errs () << "DummyMainFunction: created a call " << *CI << "\n";
+                    // For each non-deterministic call, add a printf which uses it's return value.
                     makePrintf(M,CI,B);
 
                 }
@@ -234,8 +248,7 @@ namespace previrt {
                 return true;
             }
 
-            void getAnalysisUsage (AnalysisUsage &AU)
-            { AU.setPreservesAll ();}
+            void getAnalysisUsage (AnalysisUsage &AU){}
 
             virtual StringRef getPassName () const 
             {return "Add dummy main function";}

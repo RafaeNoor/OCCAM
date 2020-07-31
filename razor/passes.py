@@ -120,7 +120,9 @@ def lib_occamize(input_file, output_file, functions):
 
     print("Lib Ocammize invoked with:"+functions)
 
-    args = ['-LibToMain','-entry-point={}'.format(functions)]
+    args = ['-LibToMain']
+    for fn_name in functions.split(","):
+       args+= ['-entry-point={}'.format(fn_name)]
 
     return driver.previrt(input_file,output_file, args)
 
