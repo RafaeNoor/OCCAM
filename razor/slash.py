@@ -217,7 +217,7 @@ class Slash(object):
         if not valid:
             return 1
 
-        (valid, module, binary, libs, native_libs, ldflags, args, name, constraints,lib_spec) = parsed
+        (valid, module, binary, libs, native_libs, ldflags, args, name, constraints,lib_spec,main_spec) = parsed
 
 
         if not self.driver_config():
@@ -286,6 +286,8 @@ class Slash(object):
             inline_spec = False
 
         sys.stderr.write('\nslash working on {0} wrt {1} with lib_spec {2} ...\n'.format(module, ' '.join(libs), ' '.join(lib_spec)))
+        sys.stderr.write('\nslash main_spec {0}  ...\n'.format(' '.join(main_spec)))
+
 
         native_lib_flags = []
 
@@ -301,7 +303,7 @@ class Slash(object):
                 new_native_libs.append(os.path.realpath(lib))
         native_libs = new_native_libs
 
-        files = utils.populate_work_dir(module, libs, lib_spec, self.work_dir)
+        files = utils.populate_work_dir(module, libs, lib_spec, main_spec, self.work_dir)
         os.chdir(self.work_dir)
 
         profile_maps, profile_map_titles = [], []
@@ -663,7 +665,7 @@ class Slash(object):
                 return False
 
 
-        if entry_point == "none":
+        if entry_point == "none" and main_spec == []:
             link_ok = link(binary, files, libs, native_libs, native_lib_flags, ldflags)
         else:
             print("Lib OCCAMIZE invoked, no linking neccesary")

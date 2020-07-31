@@ -105,7 +105,7 @@ def make_work_dir(d):
 def sanity_check_manifest(manifest):
     """ Nurse maid the users.
     """
-    manifest_keys = ['ldflags', 'args', 'name', 'native_libs', 'binary', 'modules','lib_spec']
+    manifest_keys = ['ldflags', 'args', 'name', 'native_libs', 'binary', 'modules','lib_spec','main_spec']
 
     old_manifest_keys = ['modules', 'libs', 'search', 'shared']
 
@@ -200,8 +200,16 @@ def check_manifest(manifest):
         return (False, )
 
     lib_spec = manifest.get('lib_spec')
+    if lib_spec is None:
+        lib_spec = []
 
-    return (True, main, binary, modules, native_libs, ldflags, args, name, constraints,lib_spec)
+    main_spec = manifest.get('main_spec')
+    if main_spec is None:
+        main_spec = []
+
+
+
+    return (True, main, binary, modules, native_libs, ldflags, args, name, constraints,lib_spec,main_spec)
 
 
 #iam: used to be just os.path.basename; but now when we are processing trees
@@ -224,10 +232,10 @@ def prevent_collisions(x):
 bit_code_pattern = re.compile(r'\.bc$', re.IGNORECASE)
 
 
-def populate_work_dir(module, libs, lib_spec, work_dir):
+def populate_work_dir(module, libs, lib_spec, main_spec, work_dir):
     files = {}
 
-    for x in [module] + libs + lib_spec :
+    for x in [module] + libs + lib_spec + main_spec :
         if bit_code_pattern.search(x):
             bn = prevent_collisions(x)
             target = os.path.join(work_dir, bn)
