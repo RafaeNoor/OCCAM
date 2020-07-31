@@ -91,6 +91,8 @@ instructions = """slash has three modes of use:
         --ipdse                    : Apply inter-procedural dead store elimination (experimental)
         --ai-dce                   : Use invariants inferred by abstract interpretation for intra-module dce (experimental)
         --rop-guided-dce           : Use model-checking to remove functions with likely more ROP gadgets (experimental)
+        --entry-point              : Use model-check to keep only specified entry-points (and dependencies) in the module
+
     """
 
 def entrypoint():
@@ -374,15 +376,17 @@ class Slash(object):
             if use_library_spec :
                 external_function_files = glob.glob("external.functions.*")
                 import json
+                external_functions_list = []
                 for external_file in external_function_files:
                     with open(external_file,"r") as func_file:
                         print("Reading from file:\t"+external_file)
                         spec_dict = json.load(func_file)
 
-                        if(spec_dict['functions'] == []):
-                            lib_entry_functions = "none"
-                        else:
-                            lib_entry_functions = ",".join(spec_dict['functions'])
+                        if(spec_dict['functions'] != []):
+                            external_functions_list += spec_dict['functions']
+                #  Take union across external functions files
+                external_functions_list = list(set(external_functions_list))
+                lib_entry_functions = ",".join(external_functions_list)
             else:
                 lib_entry_functions = entry_point
 
