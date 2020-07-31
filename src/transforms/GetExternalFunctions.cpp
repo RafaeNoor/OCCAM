@@ -87,7 +87,9 @@ namespace previrt {
                     return false;
                 }
 
-                virtual void getAnalysisUsage(AnalysisUsage &AU) const override {}
+                virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
+                    AU.setPreservesAll();
+                }
 
                 virtual StringRef getPassName() const override {
                     return "Remove Main Function from Bitcode";

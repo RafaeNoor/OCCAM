@@ -1,11 +1,10 @@
 /**
- * LLVM transformation pass to resolve indirect calls
- *
- * The transformation performs "devirtualization" which consists of
- * looking for indirect function calls and transforming them into a
- * switch statement that selects one of several direct function calls
- * to execute. Devirtualization happens if a pointer analysis can
- * resolve the indirect calls and compute all possible callees.
+ * LLVM transformation pass to remove the 'Dummy' main function
+ * created in DummyMainFunction.cpp . This would essentially revert
+ * back the module into a library bitcode (i.e. one with no main function).
+ * The resultant bitcode would be a specialized bitcode according to 
+ * user-specified entry-point functions and could be linked to any module 
+ * which uses those entry-points.
  **/
 
 
@@ -23,22 +22,18 @@ namespace previrt {
 
         using namespace llvm;
 
-        /** 
-         ** Resolve indirect calls by one direct call for possible callee
-         ** function 
-         **/
+        /*
+         * Remove Non-Dummy main function
+         */
         class RemoveDummyMainFunction : public ModulePass {
             public:
                 static char ID;
 
-                RemoveDummyMainFunction() : ModulePass(ID) {
-                    // Initialize sea-dsa pass
-                    llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
-                    llvm::initializeCompleteCallGraphPass(Registry);
-                }
+                RemoveDummyMainFunction() : ModulePass(ID) {}
 
                 virtual bool runOnModule(Module &M) override {
 
+                    // Can't remove main function if it doesn't exist
                     if (!M.getFunction ("main")) { 
                         errs () << "RemoveDummyMainFunction: Main doesn't exist already \n";
                         return false;
@@ -47,6 +42,7 @@ namespace previrt {
 
                     Function* Main = M.getFunction("main");
 
+                    // If the main exists but is not a 'Dummy' main created in DummyMainFunction.cpp then abort
                     if(!Main->hasMetadata() || !(Main->getMetadata("dummy.metadata"))) {
                         errs()<<"Module has no Dummy Main Function, exiting...\n";
                         return false;
@@ -54,16 +50,22 @@ namespace previrt {
 
                     Main->eraseFromParent();
 
+                    
+                    // Remove any leftover verifier.nondet. function declarations
+                    for(auto fi = M.begin(), fe = M.end(); fi != fe; ){
+                        Function* F = &*fi;
+                        fi++;
+                        if(F->getName().startswith("verifier.nondet.")){
+                            errs()<<"Non det leftover:\t"<<F->getName()<<"\n";
+                            F->eraseFromParent();
+                        }
+                    }
+
                     return true;
                 }
 
                 virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-                    // AU.addRequired<CallGraphWrapperPass>();
-                    AU.addRequired<seadsa::CompleteCallGraph>();
-                    // FIXME: DevirtualizeFunctions does not fully update the call
-                    // graph so we don't claim it's preserved.
-                    // AU.setPreservesAll();
-                    // AU.addPreserved<CallGraphWrapperPass>();
+                    AU.setPreservesAll();
                 }
 
                 virtual StringRef getPassName() const override {
