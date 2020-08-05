@@ -187,7 +187,7 @@ namespace previrt {
 
                             for(auto fn_nm: mangled_names){
                                 Function* fptr = M.getFunction(fn_nm);
-                                if(fptr){ EntryFunctions.push_back(fptr); }
+                                if(fptr && !(fptr->isIntrinsic())){ EntryFunctions.push_back(fptr); }
                                 else{
                                     errs()<<"DummyMainFunction: This shouldn't have happend\n";
                                     assert(false);
