@@ -1,0 +1,11 @@
+--- src/os/unix/ngx_user.c	2017-01-31 07:01:12.000000000 -0800
++++ ../nginxpatched/src/os/unix/ngx_user.c	2020-08-12 05:12:08.911144740 -0700
+@@ -31,7 +31,7 @@
+     struct crypt_data   cd;
+ 
+     cd.initialized = 0;
+-#ifdef __GLIBC__
++#if defined(__GLIBC__) && !defined(CRYPT_DATA_INTERNAL_SIZE)
+     /* work around the glibc bug */
+     cd.current_salt[0] = ~salt[0];
+ #endif

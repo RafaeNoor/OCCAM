@@ -1,7 +1,8 @@
 import subprocess as sb
 import sys
 
-LIBRARIES = ["libc","libcrypto","libcrypt","libpcre"]
+LIBRARIES = ["libc","libcrypto","libcrypt","libpcre",
+             "libz"]
 
 if len(sys.argv) < 2:
     print("Please specify libraries to build")
@@ -21,6 +22,8 @@ def build_lib(lib_name, commands):
         for cmd in commands:
             writeFile.write(cmd+"\n")
     sb.call("bash build_{}.sh".format(lib_name),shell=True)
+    sb.call("rm build_{}.sh".format(lib_name),shell=True)
+
 
 
 
@@ -92,11 +95,29 @@ def build_libpcre():
     ]
     build_lib("libpcre",commands)
 
+def build_libz():
+    print("Building libz...")
+    commands = [
+        "mkdir libz",
+        "cd libz",
+        "wget https://zlib.net/zlib-1.2.11.tar.gz",
+        "tar -xf zlib-1.2.11.tar.gz",
+        "cd zlib-1.2.11",
+        "CC=gclang ./configure",
+        "make",
+        "get-bc libz.so",
+        "cp libz.so.1.2.11.bc ../../"
+
+    ]
+    build_lib("libz",commands)
+
+
 lib_to_function = {
     "libc": build_libc,
     "libcrypto": build_libcrypto,
     "libcrypt": build_libcrypt,
     "libpcre": build_libpcre,
+    "libz": build_libz,
 }
 
 
