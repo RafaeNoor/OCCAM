@@ -122,6 +122,34 @@ namespace previrt {
             }
 
             /*
+             * For cases where there isn't a return value and the function is pure,
+             * to keep these functions in the module (for the sake of completeness).
+             */
+            void makeImpure(LLVMContext& ctx,GlobalVariable* GV,Function* F, IRBuilder<> builder){
+                BasicBlock* FBegin = &*(F->begin());
+                BasicBlock* IncrementBlock = BasicBlock::Create(ctx,"dummy_increment",F,FBegin);
+
+                
+
+                //Add branch inst
+                BranchInst* Br = BranchInst::Create(FBegin,IncrementBlock);
+
+                // Load the global variable
+                LoadInst* LoadGlob = new LoadInst(GV->getValueType(), (Value*) GV,"counter", (Instruction*) Br);
+                
+                //Increment by 1
+                auto AddInst = BinaryOperator::Create(Instruction::Add, ConstantInt::get(GV->getValueType(),1,false), 
+                        LoadGlob, "add_dummy", (Instruction*) Br);
+
+                StoreInst* StoreGlob = new StoreInst(AddInst, GV, (Instruction*) Br);
+
+                errs()<<F->getName()<<"\n";
+                errs()<<*F<<"\n";
+
+
+            }
+
+            /*
              * The non-deterministic function calls created don't have their return values
              * being used and hence would be discarded by the specialization passes. Creating
              * temporary printf calls would prevent these passes from discarding these calls.
@@ -172,6 +200,9 @@ namespace previrt {
                 auto fn_map = getFnMap(M);
                 printFnMapInfo(fn_map);
 
+
+
+
                 // Functions corresponding to the user specified entry points
                 SmallVector<Function*, 16> EntryFunctions;
 
@@ -214,6 +245,12 @@ namespace previrt {
                         GlobalValue::LinkageTypes::ExternalLinkage, 
                         "main", &M);
 
+                // Create Global Variable
+                GlobalVariable* Counter = new GlobalVariable(M,intTy,false, GlobalValue::LinkageTypes::ExternalLinkage,
+                        nullptr, "DummyCounter");
+
+
+
                 // Adding a metadata node with string dummy. Allows differentiating
                 // between 'Dummy' main functions and actual main functions across modules.
                 LLVMContext& C = main->getContext();
@@ -225,6 +262,8 @@ namespace previrt {
                 B.SetInsertPoint (BB, BB->begin ());
 
                 for (auto F: EntryFunctions){
+
+
                     // -- create a call with non-deterministic actual parameters
                     SmallVector<Value*, 16> Args;
                     for (auto &A : F->args ()) {
@@ -236,8 +275,11 @@ namespace previrt {
 
                     errs () << "DummyMainFunction: created a call " << *CI << "\n";
                     // For each non-deterministic call, add a printf which uses it's return value.
-                    makePrintf(M,CI,B);
-
+                    if(!F->getReturnType()->isVoidTy()){
+                        makePrintf(M,CI,B);
+                    } else {
+                        //makeImpure(ctx,Counter,F,B);
+                    }
                 }
 
                 // -- return of main
