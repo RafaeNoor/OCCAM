@@ -56,4 +56,10 @@ for bitcode in slash/*-final.bc; do
 done
 
 
+#  Identify which external function available in bitcode
+echo "Extracting External function responsibilities ... "
+cd slash
+python $OCCAM_HOME/comparisons/get_function_responsibility.py external.functions.nginx.bc ../manifest > function_responsibility
+cd ../
+
 

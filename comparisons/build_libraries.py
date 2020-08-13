@@ -1,3 +1,16 @@
+"""
+==============================================================
+Build library bitcodes for specified libraries. User specifies
+which librariess to build from the LIBRARIES list, and it follows
+the build procedure to extract the required bitcodes.
+
+Usage:
+
+python build_libraries.py libc libcrypto ...
+==============================================================
+
+"""
+
 import subprocess as sb
 import sys
 
