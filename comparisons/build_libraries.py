@@ -38,7 +38,7 @@ def build_libc():
         "CC=gclang WLLVM_CONFIGURE_ONLY=1  ./configure --target=LLVM --build=LLVM --prefix=libc_build",
         "make",
         "cd lib",
-        "get-bc libc.so"
+        "get-bc ./libc.so",
         "cp libc.so.bc ../../../"
     ]
 
@@ -56,7 +56,7 @@ def build_libcrypto():
         "CC=gclang ./config",
         "make -j2",
         "get-bc libcrypto.so",
-        "cp libcrypto.so.1.1.bc ../../"
+        "cp libcrypto.so.1.1.bc ../../",
 
     ]
     build_lib("libcrypto",commands)
@@ -68,13 +68,13 @@ def build_libcrypt():
         "cd libcrypt",
         "wget https://mirrors.gandi.net/ubuntu/pool/main/libx/libxcrypt/libxcrypt_4.4.10.orig.tar.xz",
         "tar -xf libxcrypt_4.4.10.orig.tar.xz",
-        "d libxcrypt-4.4.10",
+        "cd libxcrypt-4.4.10",
         "./bootstrap",
         "CC=gclang ./configure",
         "make -j2",
         "cd ./.libs",
         "get-bc libcrypt.so",
-        "cp libcrypt.so.1.1.0.bc ../../../"
+        "cp libcrypt.so.1.1.0.bc ../../../",
 
     ]
     build_lib("libcrypt",commands)
@@ -91,7 +91,7 @@ def build_libpcre():
         "make -j2",
         "cd ./.libs",
         "get-bc libpcre.so",
-        "cp libpcre.so.1.2.7.bc ../../../"
+        "cp libpcre.so.1.2.7.bc ../../../",
     ]
     build_lib("libpcre",commands)
 
@@ -106,7 +106,7 @@ def build_libz():
         "CC=gclang ./configure",
         "make",
         "get-bc libz.so",
-        "cp libz.so.1.2.11.bc ../../"
+        "cp libz.so.1.2.11.bc ../../",
 
     ]
     build_lib("libz",commands)

@@ -22,7 +22,8 @@ cp nginx.bc ../../
 
 # building library dependency
 # TODO: libpthread and libdl need to be added
-python ../../build_libraries.py libc libcypto libcrypt libpcre libz
+
+python $OCCAM_HOME/comparisons/build_libraries.py libc libcrypto libcrypt libpcre libz
 
 
 cat > manifest <<EOF
@@ -33,7 +34,7 @@ cat > manifest <<EOF
 , "ldflags" : []
 , "name"    : "nginx"
 , "args"    : []
-, "lib_spec": ["libc.so.bc",libcrypto.so.1.1.bc", "libcrypt.so.1.1.0.bc","libpcre.so.1.2.7.bc", "libz.so.1.2.11.bc"]
+, "lib_spec": ["libc.so.bc","libcrypto.so.1.1.bc", "libcrypt.so.1.1.0.bc","libpcre.so.1.2.7.bc", "libz.so.1.2.11.bc"]
 , "main_spec": ["nginx.bc"]
 }
 EOF
