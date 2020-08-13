@@ -44,7 +44,7 @@ EOF
 export OCCAM_LOGLEVEL=INFO
 export OCCAM_LOGFILE=${PWD}/slash/occam.log
 
-slash --no-strip --intra-spec-policy=onlyonce --work-dir=slash  manifest
+slash --no-strip --intra-spec-policy=onlyonce --stats --work-dir=slash  manifest
 
 #debugging stuff below:
 for bitcode in slash/*.bc; do
